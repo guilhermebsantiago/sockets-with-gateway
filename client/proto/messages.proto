@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package smartcity;
+
+// Tipos de dispositivos
+enum DeviceType {
+  DEVICE_TYPE_UNSPECIFIED = 0;
+  CAMERA = 1;
+  TRAFFIC_LIGHT = 2;
+  STREET_LAMP = 3;
+  AIR_QUALITY_SENSOR = 4;
+  TEMPERATURE_SENSOR = 5;
+}
+
+// Status do dispositivo
+enum DeviceStatus {
+  DEVICE_STATUS_UNSPECIFIED = 0;
+  ONLINE = 1;
+  OFFLINE = 2;
+  WARNING = 3;
+}
+
+// Tipos de mensagem
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  DEVICE_LIST = 1;
+  DEVICE_UPDATE = 2;
+  COMMAND = 3;
+  SENSOR_DATA = 4;
+  DISCOVERY = 5;
+  DEVICE_CONNECTED = 6;
+  DEVICE_DISCONNECTED = 7;
+  GATEWAY_STATUS = 8;
+  ERROR = 9;
+}
+
+// Tipos de comando
+enum CommandType {
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  TOGGLE = 1;
+  CONFIGURE = 2;
+  STATUS = 3;
+}
+
+// Dados do sensor
+message SensorData {
+  double value = 1;
+  string unit = 2;
+  string timestamp = 3;
+}
+
+// Configuração genérica (key-value)
+message ConfigEntry {
+  string key = 1;
+  oneof value {
+    string string_value = 2;
+    int32 int_value = 3;
+    bool bool_value = 4;
+    double double_value = 5;
+  }
+}
+
+// Dispositivo
+message Device {
+  string id = 1;
+  string name = 2;
+  DeviceType type = 3;
+  DeviceStatus status = 4;
+  bool is_on = 5;
+  string ip = 6;
+  int32 port = 7;
+  string last_update = 8;
+  repeated ConfigEntry config = 9;
+  SensorData sensor_data = 10;
+}
+
+// Lista de dispositivos
+message DeviceList {
+  repeated Device devices = 1;
+}
+
+// Comando para dispositivo
+message Command {
+  string device_id = 1;
+  CommandType command = 2;
+  repeated ConfigEntry params = 3;
+}
+
+// Status do gateway
+message GatewayStatus {
+  bool connected = 1;
+}
+
+// Mensagem de erro
+message Error {
+  string message = 1;
+  int32 code = 2;
+}
+
+// Dados de sensor (para broadcast)
+message SensorDataUpdate {
+  string device_id = 1;
+  SensorData data = 2;
+}
+
+// Mensagem principal (envelope)
+message Message {
+  MessageType type = 1;
+  string timestamp = 2;
+  
+  oneof payload {
+    DeviceList device_list = 3;
+    Device device = 4;
+    Command command = 5;
+    SensorDataUpdate sensor_data = 6;
+    GatewayStatus gateway_status = 7;
+    Error error = 8;
+  }
+}
+
+// Mensagem de descoberta (multicast UDP)
+message DiscoveryRequest {
+  string gateway_id = 1;
+  string gateway_ip = 2;
+  int32 gateway_port = 3;
+}
+
+// Resposta de descoberta
+message DiscoveryResponse {
+  Device device = 1;
+}
+
