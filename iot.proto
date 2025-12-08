@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+message Registro {
+    int32 porta = 1;
+    string tipo_dispositivo = 2;
+}
+
+message Dados {
+    float valor = 1;
+    string unidade = 2;
+    string tipo_leitura = 3;
+}
+
+message Comando {
+    string acao = 1;
+    string param = 2;
+}
+
+message Mensagem {
+    string id_origem = 1;
+    string tipo_mensagem = 2;
+    Registro registro = 3;
+    Dados dados = 4;
+    Comando comando = 5;
+}
+
