@@ -6,19 +6,38 @@ import random
 import signal
 import sys
 import iot_pb2 as proto
+import config
 
 MEU_ID = "sensor_temperatura_01"
-MINHA_PORTA_TCP = 8006
-GATEWAY_UDP_PORT = 9001
-MCAST_GRP = '224.1.1.1'
-MCAST_PORT = 5007
+MINHA_PORTA_TCP = config.SENSOR_TEMPERATURA_PORT
+GATEWAY_UDP_PORT = config.GATEWAY_UDP_PORT
+MCAST_GRP = config.MCAST_GRP
+MCAST_PORT = config.MCAST_PORT
 
 running = True
+
+def enviar_desregistro():
+    """Envia mensagem de DESREGISTRO ao encerrar"""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack('b', 1))
+        
+        msg = proto.Mensagem()
+        msg.id_origem = MEU_ID
+        msg.tipo_mensagem = "DESREGISTRO"
+        msg.registro.porta = MINHA_PORTA_TCP
+        msg.registro.tipo_dispositivo = "SENSOR"
+        
+        sock.sendto(msg.SerializeToString(), (MCAST_GRP, MCAST_PORT))
+        sock.close()
+    except:
+        pass
 
 def signal_handler(sig, frame):
     global running
     print("\n[TEMP] Encerrando...")
     running = False
+    enviar_desregistro()
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
@@ -37,7 +56,7 @@ class SensorTemperatura:
         msg.registro.porta = MINHA_PORTA_TCP
         msg.registro.tipo_dispositivo = "SENSOR"
         
-        print(f"[TEMP] Anunciando presenca via Multicast...")
+        print(f"[TEMP] Anunciando presenca via Multicast (porta {MINHA_PORTA_TCP})...")
         sock.sendto(msg.SerializeToString(), (MCAST_GRP, MCAST_PORT))
 
     def enviar_leitura(self):
@@ -70,6 +89,8 @@ class SensorTemperatura:
                 time.sleep(0.5)
         except KeyboardInterrupt:
             pass
+        finally:
+            enviar_desregistro()
 
 if __name__ == "__main__":
     print("[TEMP] Iniciando... (Ctrl+C para encerrar)")

@@ -49,6 +49,14 @@ class IoTGateway:
                     self.log(f"Novo dispositivo registrado: {d_id} ({msg.registro.tipo_dispositivo})")
                     # Notificar clientes sobre novo dispositivo
                     self.broadcast_clientes(f"[REGISTRO] {d_id}:{msg.registro.tipo_dispositivo}:{msg.registro.porta}")
+                
+                elif msg.tipo_mensagem == "DESREGISTRO":
+                    d_id = msg.id_origem
+                    if d_id in self.dispositivos:
+                        del self.dispositivos[d_id]
+                        self.log(f"Dispositivo desregistrado: {d_id}")
+                        # Notificar clientes que dispositivo foi removido
+                        self.broadcast_clientes(f"[DESREGISTRO] {d_id}")
             except: pass
 
     # --- 2. DADOS DE SENSORES (UDP) ---

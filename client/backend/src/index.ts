@@ -141,6 +141,27 @@ function parseGatewayMessage(line: string): void {
     return;
   }
   
+  // Formato desregistro: [DESREGISTRO] id
+  const desregistroMatch = trimmed.match(/\[DESREGISTRO\]\s*(.+)/);
+  if (desregistroMatch) {
+    const deviceId = desregistroMatch[1].trim();
+    
+    if (devices.has(deviceId)) {
+      devices.delete(deviceId);
+      
+      console.log(`📴 Dispositivo removido: ${deviceId}`);
+      
+      broadcast({
+        type: 'device_disconnected',
+        payload: { deviceId },
+        timestamp: new Date().toISOString(),
+      });
+      
+      broadcastDeviceList();
+    }
+    return;
+  }
+  
   // Formato dados: [id_dispositivo] TIPO_LEITURA: valor unidade
   const dadosMatch = trimmed.match(/\[([^\]]+)\]\s*([^:]+):\s*([\d.]+)\s*(.+)/);
   if (dadosMatch) {

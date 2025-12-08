@@ -218,7 +218,8 @@ export const connectToGateway = (
             store.addDevice(message.payload);
             break;
           case 'device_disconnected':
-            store.updateDevice(message.payload.id, { status: 'offline' });
+            // Remover dispositivo da lista quando ele desconecta
+            store.removeDevice(message.payload.deviceId);
             break;
           case 'gateway_status':
             if (message.payload.connected) {
