@@ -62,37 +62,61 @@ Write-Host "Iniciando servicos..." -ForegroundColor Yellow
 Write-Host ""
 
 # 1. Gateway
-Write-Host "  [1/6] Gateway Central..." -ForegroundColor White
+Write-Host "  [1/10] Gateway Central..." -ForegroundColor White
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\gateway'; Write-Host 'GATEWAY' -ForegroundColor Cyan; python gateway.py" -WindowStyle Normal
 
 Start-Sleep -Seconds 2
 
 # 2. Semaforo
-Write-Host "  [2/6] Semaforo..." -ForegroundColor White
+Write-Host "  [2/10] Semaforo..." -ForegroundColor White
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'SEMAFORO' -ForegroundColor Yellow; python semaforo.py" -WindowStyle Normal
 
 Start-Sleep -Seconds 1
 
 # 3. Poste
-Write-Host "  [3/6] Poste de Luz..." -ForegroundColor White
+Write-Host "  [3/10] Poste de Luz..." -ForegroundColor White
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'POSTE' -ForegroundColor Yellow; python poste.py" -WindowStyle Normal
 
 Start-Sleep -Seconds 1
 
 # 4. Radar
-Write-Host "  [4/6] Radar de Velocidade..." -ForegroundColor White
+Write-Host "  [4/10] Radar de Velocidade..." -ForegroundColor White
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'RADAR' -ForegroundColor Yellow; python radar.py" -WindowStyle Normal
+
+Start-Sleep -Seconds 1
+
+# 5. Camera Estacionamento
+Write-Host "  [5/10] Camera Estacionamento..." -ForegroundColor White
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'CAMERA ESTACIONAMENTO' -ForegroundColor Yellow; python camera_estacionamento.py" -WindowStyle Normal
+
+Start-Sleep -Seconds 1
+
+# 6. Camera Praca
+Write-Host "  [6/10] Camera Praca..." -ForegroundColor White
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'CAMERA PRACA' -ForegroundColor Yellow; python camera_praca.py" -WindowStyle Normal
+
+Start-Sleep -Seconds 1
+
+# 7. Sensor de Ar
+Write-Host "  [7/10] Sensor de Ar..." -ForegroundColor White
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'SENSOR AR' -ForegroundColor Yellow; python sensor_ar.py" -WindowStyle Normal
+
+Start-Sleep -Seconds 1
+
+# 8. Sensor de Temperatura
+Write-Host "  [8/10] Sensor de Temperatura..." -ForegroundColor White
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'SENSOR TEMPERATURA' -ForegroundColor Yellow; python sensor_temperatura.py" -WindowStyle Normal
 
 Start-Sleep -Seconds 2
 
-# 5. Backend Node.js
-Write-Host "  [5/6] Backend (WebSocket)..." -ForegroundColor White
+# 9. Backend Node.js
+Write-Host "  [9/10] Backend (WebSocket)..." -ForegroundColor White
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\client\backend'; Write-Host 'BACKEND' -ForegroundColor Magenta; npm run dev" -WindowStyle Normal
 
 Start-Sleep -Seconds 2
 
-# 6. Frontend React
-Write-Host "  [6/6] Frontend (React)..." -ForegroundColor White
+# 10. Frontend React
+Write-Host "  [10/10] Frontend (React)..." -ForegroundColor White
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\client\frontend'; Write-Host 'FRONTEND' -ForegroundColor Green; npm run dev" -WindowStyle Normal
 
 Write-Host ""
@@ -106,9 +130,13 @@ Write-Host "  Backend WS:  ws://localhost:3001" -ForegroundColor White
 Write-Host "  Frontend:    http://localhost:5173" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Dispositivos:" -ForegroundColor White
-Write-Host "    Semaforo   - TCP:8001" -ForegroundColor Yellow
-Write-Host "    Poste      - TCP:8002" -ForegroundColor Yellow
-Write-Host "    Radar      - TCP:8003" -ForegroundColor Yellow
+Write-Host "    Semaforo             - TCP:8001" -ForegroundColor Yellow
+Write-Host "    Poste                - TCP:8002" -ForegroundColor Yellow
+Write-Host "    Radar                - TCP:8003" -ForegroundColor Yellow
+Write-Host "    Camera Estacionamento" -ForegroundColor Yellow
+Write-Host "    Camera Praca" -ForegroundColor Yellow
+Write-Host "    Sensor Ar" -ForegroundColor Yellow
+Write-Host "    Sensor Temperatura" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Para encerrar: feche todas as janelas" -ForegroundColor Gray
 Write-Host "  ou execute: .\stop.ps1" -ForegroundColor Gray
