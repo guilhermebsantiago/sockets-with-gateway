@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerador de Ícones PWA</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 40px;
+      text-align: center;
+    }
+    h1 { color: #22d3ee; }
+    .icons { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 30px 0; }
+    .icon-box { background: #0a0e17; padding: 20px; border-radius: 12px; }
+    .icon-box p { margin: 10px 0 0; font-size: 14px; color: #888; }
+    canvas { display: block; margin: 0 auto; }
+    button {
+      margin: 10px;
+      padding: 12px 24px;
+      background: #22d3ee;
+      color: #0a0e17;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #0891b2; }
+    .instructions { max-width: 600px; margin: 30px auto; text-align: left; background: #0a0e17; padding: 20px; border-radius: 12px; }
+    .instructions li { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <h1>🏙️ Smart City - Gerador de Ícones PWA</h1>
+  
+  <div class="icons">
+    <div class="icon-box">
+      <canvas id="canvas192" width="192" height="192"></canvas>
+      <p>192x192</p>
+      <button onclick="download('canvas192', 'pwa-192x192.png')">Baixar PNG</button>
+    </div>
+    <div class="icon-box">
+      <canvas id="canvas512" width="512" height="512"></canvas>
+      <p>512x512</p>
+      <button onclick="download('canvas512', 'pwa-512x512.png')">Baixar PNG</button>
+    </div>
+    <div class="icon-box">
+      <canvas id="canvas180" width="180" height="180"></canvas>
+      <p>180x180 (Apple)</p>
+      <button onclick="download('canvas180', 'apple-touch-icon.png')">Baixar PNG</button>
+    </div>
+  </div>
+  
+  <button onclick="downloadAll()">📦 Baixar Todos</button>
+  
+  <div class="instructions">
+    <h3>Instruções:</h3>
+    <ol>
+      <li>Clique nos botões para baixar cada ícone</li>
+      <li>Mova os arquivos PNG para a pasta <code>public/</code></li>
+      <li>Rode <code>npm run build</code> novamente</li>
+      <li>O PWA estará pronto!</li>
+    </ol>
+  </div>
+
+  <script>
+    function drawIcon(canvas) {
+      const ctx = canvas.getContext('2d');
+      const size = canvas.width;
+      const scale = size / 100;
+      
+      // Background
+      ctx.fillStyle = '#0a0e17';
+      roundRect(ctx, 0, 0, size, size, 20 * scale);
+      ctx.fill();
+      
+      // Gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#22d3ee');
+      gradient.addColorStop(1, '#a855f7');
+      
+      // Hexagon
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 4 * scale;
+      ctx.beginPath();
+      ctx.moveTo(50 * scale, 20 * scale);
+      ctx.lineTo(75 * scale, 35 * scale);
+      ctx.lineTo(75 * scale, 65 * scale);
+      ctx.lineTo(50 * scale, 80 * scale);
+      ctx.lineTo(25 * scale, 65 * scale);
+      ctx.lineTo(25 * scale, 35 * scale);
+      ctx.closePath();
+      ctx.stroke();
+      
+      // Center circle
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(50 * scale, 50 * scale, 12 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Node circles
+      const nodes = [
+        { x: 50, y: 28, color: '#22d3ee' },
+        { x: 68, y: 40, color: '#a855f7' },
+        { x: 68, y: 60, color: '#22d3ee' },
+        { x: 50, y: 72, color: '#a855f7' },
+        { x: 32, y: 60, color: '#22d3ee' },
+        { x: 32, y: 40, color: '#a855f7' },
+      ];
+      
+      nodes.forEach(node => {
+        ctx.fillStyle = node.color;
+        ctx.beginPath();
+        ctx.arc(node.x * scale, node.y * scale, 5 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+    
+    function download(canvasId, filename) {
+      const canvas = document.getElementById(canvasId);
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+    
+    function downloadAll() {
+      download('canvas192', 'pwa-192x192.png');
+      setTimeout(() => download('canvas512', 'pwa-512x512.png'), 100);
+      setTimeout(() => download('canvas180', 'apple-touch-icon.png'), 200);
+    }
+    
+    // Draw all icons on load
+    window.onload = function() {
+      drawIcon(document.getElementById('canvas192'));
+      drawIcon(document.getElementById('canvas512'));
+      drawIcon(document.getElementById('canvas180'));
+    };
+  </script>
+</body>
+</html>
+
