@@ -79,6 +79,12 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
     toggleDevice(device.id);
   };
   
+  // Formatar valor do sensor para display
+  const formatSensorValue = (value: number) => {
+    if (Number.isInteger(value)) return value.toString();
+    return value.toFixed(1);
+  };
+  
   return (
     <motion.div
       className={`
@@ -88,9 +94,16 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
         ${device.status === 'offline' ? 'opacity-60' : ''}
       `}
       onClick={() => selectDevice(device.id)}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      layout
+      initial={{ opacity: 0, scale: 0.8, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ 
+        opacity: 0, 
+        scale: 0.8, 
+        y: -20,
+        transition: { duration: 0.3, ease: 'easeOut' }
+      }}
+      transition={{ delay: index * 0.05, type: 'spring', stiffness: 300, damping: 25 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
     >
@@ -119,7 +132,7 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
         {device.sensorData && (
           <div className="mt-3 flex items-baseline gap-1">
             <span className={`text-3xl font-bold font-mono ${colors.text}`}>
-              {device.sensorData.value}
+              {formatSensorValue(device.sensorData.value)}
             </span>
             <span className="text-sm text-slate-500">{device.sensorData.unit}</span>
           </div>

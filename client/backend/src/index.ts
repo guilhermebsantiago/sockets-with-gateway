@@ -363,32 +363,54 @@ wss.on('connection', (ws, req) => {
           
           if (cmd.command === 'toggle') {
             if (device?.type === 'traffic_light') {
+              // Semáforo: alternar entre cores
               action = 'MUDAR_COR';
               const currentState = device.config.currentState as string || 'red';
-              param = currentState === 'red' ? 'VERDE' : currentState === 'green' ? 'AMARELO' : 'VERMELHO';
-              device.config.currentState = param.toLowerCase();
+              if (currentState === 'red' || currentState === 'vermelho') {
+                param = 'VERDE';
+                device.config.currentState = 'green';
+              } else if (currentState === 'green' || currentState === 'verde') {
+                param = 'AMARELO';
+                device.config.currentState = 'yellow';
+              } else {
+                param = 'VERMELHO';
+                device.config.currentState = 'red';
+              }
             } else if (device?.type === 'street_lamp') {
+              // Poste: ligar/desligar (0% ou 100%)
               action = 'SET_INTENSIDADE';
               param = device.isOn ? '0%' : '100%';
               device.isOn = !device.isOn;
               device.config.brightness = device.isOn ? 100 : 0;
             } else if (device?.type === 'camera') {
-              action = 'TOGGLE';
+              // Câmera: LIGAR/DESLIGAR
+              action = device.isOn ? 'DESLIGAR' : 'LIGAR';
               param = device.isOn ? 'OFF' : 'ON';
               device.isOn = !device.isOn;
             }
           } else if (cmd.command === 'configure' && cmd.params) {
             if (device?.type === 'traffic_light' && cmd.params.currentState) {
+              // Semáforo: mudar para cor específica
               action = 'MUDAR_COR';
               const cor = String(cmd.params.currentState).toUpperCase();
-              param = cor === 'RED' ? 'VERMELHO' : cor === 'GREEN' ? 'VERDE' : 'AMARELO';
-              device.config.currentState = cmd.params.currentState;
+              if (cor === 'RED') {
+                param = 'VERMELHO';
+                device.config.currentState = 'red';
+              } else if (cor === 'GREEN') {
+                param = 'VERDE';
+                device.config.currentState = 'green';
+              } else {
+                param = 'AMARELO';
+                device.config.currentState = 'yellow';
+              }
             } else if (device?.type === 'street_lamp' && cmd.params.brightness !== undefined) {
+              // Poste: ajustar intensidade
               action = 'SET_INTENSIDADE';
               param = `${cmd.params.brightness}%`;
               device.config.brightness = cmd.params.brightness;
               device.isOn = Number(cmd.params.brightness) > 0;
             } else if (device?.type === 'camera' && cmd.params.resolution) {
+              // Câmera/Radar: mudar resolução
               action = 'SET_RESOLUCAO';
               param = String(cmd.params.resolution);
               device.config.resolution = cmd.params.resolution;

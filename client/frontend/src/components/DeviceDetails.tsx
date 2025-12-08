@@ -62,7 +62,7 @@ export function DeviceDetails() {
               <select
                 value={localConfig.resolution as string || '1080p'}
                 onChange={(e) => setLocalConfig({ ...localConfig, resolution: e.target.value })}
-                className="input"
+                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all cursor-pointer"
               >
                 <option value="720p">HD (720p)</option>
                 <option value="1080p">Full HD (1080p)</option>
@@ -123,7 +123,7 @@ export function DeviceDetails() {
                 type="number"
                 value={localConfig.redDuration as number || 30}
                 onChange={(e) => setLocalConfig({ ...localConfig, redDuration: parseInt(e.target.value) })}
-                className="input"
+                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
                 min={5}
                 max={120}
               />
@@ -134,7 +134,7 @@ export function DeviceDetails() {
                 type="number"
                 value={localConfig.yellowDuration as number || 5}
                 onChange={(e) => setLocalConfig({ ...localConfig, yellowDuration: parseInt(e.target.value) })}
-                className="input"
+                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
                 min={2}
                 max={10}
               />
@@ -145,7 +145,7 @@ export function DeviceDetails() {
                 type="number"
                 value={localConfig.greenDuration as number || 30}
                 onChange={(e) => setLocalConfig({ ...localConfig, greenDuration: parseInt(e.target.value) })}
-                className="input"
+                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
                 min={5}
                 max={120}
               />
@@ -187,7 +187,7 @@ export function DeviceDetails() {
               type="number"
               value={localConfig.alertThreshold as number || 100}
               onChange={(e) => setLocalConfig({ ...localConfig, alertThreshold: parseInt(e.target.value) })}
-              className="input"
+              className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
               min={0}
               max={500}
             />
@@ -203,7 +203,7 @@ export function DeviceDetails() {
                 type="number"
                 value={localConfig.alertMinTemp as number || 0}
                 onChange={(e) => setLocalConfig({ ...localConfig, alertMinTemp: parseInt(e.target.value) })}
-                className="input"
+                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
               />
             </div>
             <div>
@@ -212,7 +212,7 @@ export function DeviceDetails() {
                 type="number"
                 value={localConfig.alertMaxTemp as number || 40}
                 onChange={(e) => setLocalConfig({ ...localConfig, alertMaxTemp: parseInt(e.target.value) })}
-                className="input"
+                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
               />
             </div>
           </>

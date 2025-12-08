@@ -3,6 +3,7 @@ import { DeviceCard } from './DeviceCard';
 import { Cpu } from 'lucide-react';
 import { useState } from 'react';
 import type { DeviceType } from '../types/device';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const filterOptions: { value: DeviceType | 'all'; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -52,11 +53,16 @@ export function DeviceList() {
       
       {/* Device Grid */}
       {filteredDevices.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-          {filteredDevices.map((device, index) => (
-            <DeviceCard key={device.id} device={device} index={index} />
-          ))}
-        </div>
+        <motion.div 
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6"
+          layout
+        >
+          <AnimatePresence mode="popLayout">
+            {filteredDevices.map((device, index) => (
+              <DeviceCard key={device.id} device={device} index={index} />
+            ))}
+          </AnimatePresence>
+        </motion.div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center mb-4">
