@@ -2,25 +2,20 @@ import { WebSocketServer, WebSocket } from 'ws';
 import net from 'net';
 import type { GatewayMessage, Device, DeviceType } from './types.js';
 
-// Configuration - Gateway real
 const WS_PORT = parseInt(process.env.WS_PORT || '3001');
 const GATEWAY_HOST = process.env.GATEWAY_HOST || 'localhost';
 const GATEWAY_PORT = parseInt(process.env.GATEWAY_PORT || '9000');
 
-// State
 let tcpClient: net.Socket | null = null;
 let isGatewayConnected = false;
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let manualDisconnect = false;
 
-// Dispositivos conhecidos
 const devices: Map<string, Device> = new Map();
 
-// WebSocket Server
 const wss = new WebSocketServer({ port: WS_PORT });
 console.log(`🚀 WebSocket Server rodando na porta ${WS_PORT}`);
 
-// Mapear tipo do Gateway para tipo do frontend
 function mapDeviceType(tipoGateway: string, id: string): DeviceType {
   const idLower = id.toLowerCase();
   if (idLower.includes('semaforo')) return 'traffic_light';
@@ -29,13 +24,11 @@ function mapDeviceType(tipoGateway: string, id: string): DeviceType {
   if (idLower.includes('temp')) return 'temperature_sensor';
   if (idLower.includes('ar') || idLower.includes('air') || idLower.includes('qualidade')) return 'air_quality_sensor';
   
-  // Por tipo do gateway
   if (tipoGateway === 'SENSOR') return 'temperature_sensor';
   if (tipoGateway === 'MISTO') return 'camera';
-  return 'camera'; // ATUADOR genérico
+  return 'camera';
 }
 
-// Formatar nome do dispositivo
 function formatDeviceName(id: string): string {
   return id
     .replace(/_/g, ' ')
@@ -44,7 +37,6 @@ function formatDeviceName(id: string): string {
     .join(' ');
 }
 
-// Criar device a partir de registro
 function createDevice(id: string, tipo: string, porta?: number): Device {
   const deviceType = mapDeviceType(tipo, id);
   const isSensor = deviceType === 'temperature_sensor' || deviceType === 'air_quality_sensor';
@@ -63,7 +55,6 @@ function createDevice(id: string, tipo: string, porta?: number): Device {
   };
 }
 
-// Config padrão por tipo
 function getDefaultConfig(type: DeviceType): Record<string, unknown> {
   switch (type) {
     case 'traffic_light':
@@ -77,7 +68,6 @@ function getDefaultConfig(type: DeviceType): Record<string, unknown> {
   }
 }
 
-// Broadcast to all connected WebSocket clients
 function broadcast(message: GatewayMessage): void {
   const data = JSON.stringify(message);
   wss.clients.forEach((client) => {
@@ -87,7 +77,6 @@ function broadcast(message: GatewayMessage): void {
   });
 }
 
-// Enviar lista de dispositivos atualizada
 function broadcastDeviceList(): void {
   broadcast({
     type: 'device_list',
@@ -96,7 +85,6 @@ function broadcastDeviceList(): void {
   });
 }
 
-// Send command to Gateway via TCP (formato: ID:ACAO:PARAM)
 function sendToGateway(deviceId: string, action: string, param: string): boolean {
   if (!tcpClient || !isGatewayConnected) {
     console.warn('⚠️  Gateway não conectado');
@@ -114,12 +102,10 @@ function sendToGateway(deviceId: string, action: string, param: string): boolean
   }
 }
 
-// Parse mensagens do Gateway
 function parseGatewayMessage(line: string): void {
   const trimmed = line.trim();
   if (!trimmed) return;
   
-  // Formato registro: [REGISTRO] id:tipo:porta
   const registroMatch = trimmed.match(/\[REGISTRO\]\s*([^:]+):([^:]+):(\d+)/);
   if (registroMatch) {
     const [, deviceId, tipo, porta] = registroMatch;
@@ -141,7 +127,6 @@ function parseGatewayMessage(line: string): void {
     return;
   }
   
-  // Formato desregistro: [DESREGISTRO] id
   const desregistroMatch = trimmed.match(/\[DESREGISTRO\]\s*(.+)/);
   if (desregistroMatch) {
     const deviceId = desregistroMatch[1].trim();
@@ -162,12 +147,10 @@ function parseGatewayMessage(line: string): void {
     return;
   }
   
-  // Formato dados: [id_dispositivo] TIPO_LEITURA: valor unidade
   const dadosMatch = trimmed.match(/\[([^\]]+)\]\s*([^:]+):\s*([\d.]+)\s*(.+)/);
   if (dadosMatch) {
     const [, deviceId, tipoLeitura, valor, unidade] = dadosMatch;
     
-    // Atualizar ou criar dispositivo
     let device = devices.get(deviceId);
     if (!device) {
       device = createDevice(deviceId, 'MISTO');
@@ -180,7 +163,6 @@ function parseGatewayMessage(line: string): void {
       });
     }
     
-    // Caso especial: Semáforo envia cor como "unidade"
     if (tipoLeitura.trim() === 'COR_SEMAFORO') {
       const cor = unidade.trim().toLowerCase();
       let currentState = 'red';
@@ -201,7 +183,6 @@ function parseGatewayMessage(line: string): void {
       return;
     }
     
-    // Atualizar dados do sensor
     device.sensorData = {
       value: parseFloat(valor),
       unit: unidade.trim(),
@@ -211,7 +192,6 @@ function parseGatewayMessage(line: string): void {
     
     console.log(`📊 Sensor [${deviceId}]: ${valor} ${unidade}`);
     
-    // Broadcast atualização
     broadcast({
       type: 'sensor_data',
       payload: { deviceId, data: device.sensorData },
@@ -220,14 +200,12 @@ function parseGatewayMessage(line: string): void {
     return;
   }
   
-  // Confirmação de comando: [OK] ...
   if (trimmed.startsWith('[OK]')) {
     console.log(`✅ ${trimmed}`);
     return;
   }
 }
 
-// TCP connection to Gateway
 function connectToGateway(): void {
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
@@ -242,14 +220,12 @@ function connectToGateway(): void {
     console.log(`✅ Conectado ao Gateway em ${GATEWAY_HOST}:${GATEWAY_PORT}`);
     isGatewayConnected = true;
     
-    // Notify all WebSocket clients
     broadcast({
       type: 'gateway_status',
       payload: { connected: true },
       timestamp: new Date().toISOString(),
     });
     
-    // Solicitar lista de dispositivos
     setTimeout(() => {
       if (tcpClient) {
         tcpClient.write('LISTAR:\n');
@@ -282,7 +258,6 @@ function connectToGateway(): void {
       timestamp: new Date().toISOString(),
     });
     
-    // Só reconecta se não foi desconexão manual
     if (!manualDisconnect) {
       console.log('🔄 Reconectando em 5 segundos...');
       reconnectTimeout = setTimeout(connectToGateway, 5000);
@@ -298,19 +273,16 @@ function connectToGateway(): void {
   });
 }
 
-// Handle WebSocket connections
 wss.on('connection', (ws, req) => {
   const clientIP = req.socket.remoteAddress || 'unknown';
   console.log(`📱 Cliente Web conectado: ${clientIP}`);
   
-  // Send current gateway status
   ws.send(JSON.stringify({
     type: 'gateway_status',
     payload: { connected: isGatewayConnected },
     timestamp: new Date().toISOString(),
   } as GatewayMessage));
   
-  // Send current device list
   ws.send(JSON.stringify({
     type: 'device_list',
     payload: Array.from(devices.values()),
@@ -323,14 +295,12 @@ wss.on('connection', (ws, req) => {
       console.log(`📨 Mensagem do cliente: ${message.type}`);
       
       if (message.type === 'device_list') {
-        // Return current devices
         ws.send(JSON.stringify({
           type: 'device_list',
           payload: Array.from(devices.values()),
           timestamp: new Date().toISOString(),
         }));
       } else if (message.type === 'disconnect') {
-        // Desconectar do Gateway manualmente
         console.log('🔌 Desconexão manual solicitada');
         manualDisconnect = true;
         
@@ -365,7 +335,6 @@ wss.on('connection', (ws, req) => {
           timestamp: new Date().toISOString(),
         }));
       } else if (message.type === 'connect') {
-        // Reconectar ao Gateway
         console.log('🔌 Reconexão solicitada');
         manualDisconnect = false;
         
@@ -376,7 +345,6 @@ wss.on('connection', (ws, req) => {
         const cmd = message.payload as { deviceId: string; command: string; params?: Record<string, unknown> };
         
         if (isGatewayConnected) {
-          // Converter comando do frontend para formato do Gateway
           let action = '';
           let param = '';
           
@@ -384,7 +352,6 @@ wss.on('connection', (ws, req) => {
           
           if (cmd.command === 'toggle') {
             if (device?.type === 'traffic_light') {
-              // Semáforo: alternar entre cores
               action = 'MUDAR_COR';
               const currentState = device.config.currentState as string || 'red';
               if (currentState === 'red' || currentState === 'vermelho') {
@@ -398,20 +365,17 @@ wss.on('connection', (ws, req) => {
                 device.config.currentState = 'red';
               }
             } else if (device?.type === 'street_lamp') {
-              // Poste: ligar/desligar (0% ou 100%)
               action = 'SET_INTENSIDADE';
               param = device.isOn ? '0%' : '100%';
               device.isOn = !device.isOn;
               device.config.brightness = device.isOn ? 100 : 0;
             } else if (device?.type === 'camera') {
-              // Câmera: LIGAR/DESLIGAR
               action = device.isOn ? 'DESLIGAR' : 'LIGAR';
               param = device.isOn ? 'OFF' : 'ON';
               device.isOn = !device.isOn;
             }
           } else if (cmd.command === 'configure' && cmd.params) {
             if (device?.type === 'traffic_light' && cmd.params.currentState) {
-              // Semáforo: mudar para cor específica
               action = 'MUDAR_COR';
               const cor = String(cmd.params.currentState).toUpperCase();
               if (cor === 'RED') {
@@ -425,13 +389,11 @@ wss.on('connection', (ws, req) => {
                 device.config.currentState = 'yellow';
               }
             } else if (device?.type === 'street_lamp' && cmd.params.brightness !== undefined) {
-              // Poste: ajustar intensidade
               action = 'SET_INTENSIDADE';
               param = `${cmd.params.brightness}%`;
               device.config.brightness = cmd.params.brightness;
               device.isOn = Number(cmd.params.brightness) > 0;
             } else if (device?.type === 'camera' && cmd.params.resolution) {
-              // Câmera/Radar: mudar resolução
               action = 'SET_RESOLUCAO';
               param = String(cmd.params.resolution);
               device.config.resolution = cmd.params.resolution;
@@ -441,7 +403,6 @@ wss.on('connection', (ws, req) => {
           if (action && param) {
             sendToGateway(cmd.deviceId, action, param);
             
-            // Update local device state
             if (device) {
               device.lastUpdate = new Date().toISOString();
               
@@ -474,7 +435,6 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-// Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n🛑 Encerrando servidor...');
   
@@ -492,6 +452,5 @@ process.on('SIGINT', () => {
   });
 });
 
-// Start
 console.log(`🔌 Tentando conectar ao Gateway em ${GATEWAY_HOST}:${GATEWAY_PORT}...`);
 connectToGateway();

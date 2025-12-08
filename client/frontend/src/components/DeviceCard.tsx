@@ -68,7 +68,6 @@ const deviceColorClasses: Record<DeviceType, { bg: string; text: string; border:
   },
 };
 
-// Cores do semáforo
 const trafficLightColors: Record<string, { bg: string; glow: string; label: string }> = {
   red: { bg: 'bg-red-500', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.8)]', label: 'Vermelho' },
   vermelho: { bg: 'bg-red-500', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.8)]', label: 'Vermelho' },
@@ -91,13 +90,11 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
     toggleDevice(device.id);
   };
   
-  // Formatar valor do sensor para display
   const formatSensorValue = (value: number) => {
     if (Number.isInteger(value)) return value.toString();
     return value.toFixed(1);
   };
   
-  // Verificar se há alerta ativo para sensores
   const checkAlert = () => {
     if (!device.sensorData) return false;
     
@@ -117,18 +114,15 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
   
   const hasAlert = checkAlert();
   
-  // Estado atual do semáforo
   const trafficLightState = device.type === 'traffic_light' 
     ? (device.config.currentState as string || 'red').toLowerCase()
     : null;
   const trafficLight = trafficLightState ? trafficLightColors[trafficLightState] || trafficLightColors.red : null;
   
-  // Luminosidade do poste
   const brightness = device.type === 'street_lamp' 
     ? (device.config.brightness as number ?? 100)
     : null;
   
-  // Texto do botão para semáforo
   const getButtonText = () => {
     if (device.type === 'traffic_light') {
       return `Mudar Cor`;
@@ -159,14 +153,12 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
     >
-      {/* Alerta Badge */}
       {hasAlert && (
         <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent-red rounded-full flex items-center justify-center animate-bounce">
           <AlertTriangle size={14} className="text-white" />
         </div>
       )}
       
-      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors.bg} ${colors.text}`}>
           <Icon size={24} />
@@ -183,12 +175,10 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
         </div>
       </div>
       
-      {/* Content */}
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-slate-100 mb-1">{device.name}</h3>
         <p className="text-sm text-slate-500">{deviceLabels[device.type]}</p>
         
-        {/* Estado do Semáforo */}
         {device.type === 'traffic_light' && trafficLight && (
           <div className="mt-3 flex items-center gap-3">
             <div className={`w-8 h-8 rounded-full ${trafficLight.bg} ${trafficLight.glow}`} />
@@ -196,7 +186,6 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
           </div>
         )}
         
-        {/* Luminosidade do Poste */}
         {device.type === 'street_lamp' && brightness !== null && (
           <div className="mt-3">
             <div className="flex items-center gap-2 mb-1">
@@ -215,7 +204,6 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
           </div>
         )}
         
-        {/* Dados do sensor com alerta */}
         {device.sensorData && (
           <div className="mt-3 flex items-baseline gap-1">
             <span className={`text-3xl font-bold font-mono ${hasAlert ? 'text-accent-red' : colors.text}`}>
@@ -231,7 +219,6 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
         <p className="mt-2 text-xs text-slate-600 font-mono">{device.ip}:{device.port}</p>
       </div>
       
-      {/* Actions */}
       <div className="flex items-center gap-2">
         {!isSensor && (
           <button 

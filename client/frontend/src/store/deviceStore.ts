@@ -8,40 +8,32 @@ interface ConnectionState {
 }
 
 interface DeviceStore {
-  // State
   devices: Device[];
   selectedDeviceId: string | null;
   connection: ConnectionState;
   isLoading: boolean;
   
-  // Actions
   setDevices: (devices: Device[]) => void;
   updateDevice: (deviceId: string, updates: Partial<Device>) => void;
   addDevice: (device: Device) => void;
   removeDevice: (deviceId: string) => void;
   selectDevice: (deviceId: string | null) => void;
   
-  // Connection actions
   setConnected: (isConnected: boolean) => void;
   setGatewayAddress: (address: string) => void;
   setError: (error: string | null) => void;
   setLoading: (isLoading: boolean) => void;
   
-  // Commands
   sendCommand: (command: CommandMessage) => void;
   toggleDevice: (deviceId: string) => void;
   configureDevice: (deviceId: string, config: DeviceConfig) => void;
 }
 
-// WebSocket instance (will be initialized later)
 let ws: WebSocket | null = null;
 let connectionTimeout: ReturnType<typeof setTimeout> | null = null;
-
-// Default WebSocket URL
 const DEFAULT_WS_URL = 'ws://localhost:3001';
 
 export const useDeviceStore = create<DeviceStore>((set, get) => ({
-  // Initial state
   devices: [],
   selectedDeviceId: null,
   connection: {
@@ -51,7 +43,6 @@ export const useDeviceStore = create<DeviceStore>((set, get) => ({
   },
   isLoading: false,
 
-  // Device actions
   setDevices: (devices) => set({ devices }),
   
   updateDevice: (deviceId, updates) => set((state) => ({
@@ -71,7 +62,6 @@ export const useDeviceStore = create<DeviceStore>((set, get) => ({
   
   selectDevice: (deviceId) => set({ selectedDeviceId: deviceId }),
 
-  // Connection actions
   setConnected: (isConnected) => set((state) => ({
     connection: { ...state.connection, isConnected },
   })),
@@ -86,7 +76,6 @@ export const useDeviceStore = create<DeviceStore>((set, get) => ({
   
   setLoading: (isLoading) => set({ isLoading }),
 
-  // Commands
   sendCommand: (command) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
@@ -126,11 +115,9 @@ export const useDeviceStore = create<DeviceStore>((set, get) => ({
   },
 }));
 
-// Callbacks for connection events
 let onConnectSuccess: (() => void) | null = null;
 let onConnectError: ((error: string) => void) | null = null;
 
-// WebSocket connection manager
 export const connectToGateway = (
   address: string, 
   callbacks?: { onSuccess?: () => void; onError?: (error: string) => void }

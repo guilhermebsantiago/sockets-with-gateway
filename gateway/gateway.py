@@ -51,7 +51,6 @@ class IoTGateway:
         except Exception as e:
             self.log(f"Erro ao enviar discovery: {e}")
 
-    # --- 1. DESCOBERTA (UDP MULTICAST) ---
     def iniciar_descoberta(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -100,7 +99,6 @@ class IoTGateway:
             except:
                 break
 
-    # --- 2. DADOS DE SENSORES (UDP) ---
     def iniciar_dados(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -136,7 +134,6 @@ class IoTGateway:
             except:
                 break
 
-    # --- 3. CONTROLE DE CLIENTES (TCP) ---
     def iniciar_clientes(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
