@@ -16,7 +16,6 @@ MCAST_PORT = config.MCAST_PORT
 running = True
 
 def enviar_desregistro():
-    """Envia mensagem de DESREGISTRO ao encerrar"""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack('b', 1))
@@ -58,6 +57,33 @@ class CameraEstacionamento:
         
         print(f"[CAM-EST] Anunciando presenca via Multicast (porta {MINHA_PORTA_TCP})...")
         sock.sendto(msg.SerializeToString(), (MCAST_GRP, MCAST_PORT))
+        sock.close()
+
+    def ouvir_discovery(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('', MCAST_PORT))
+        sock.settimeout(1.0)
+        
+        mreq = struct.pack("4sl", socket.inet_aton(MCAST_GRP), socket.INADDR_ANY)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        
+        while running:
+            try:
+                data, addr = sock.recvfrom(1024)
+                try:
+                    msg = proto.Mensagem()
+                    msg.ParseFromString(data)
+                    if msg.tipo_mensagem == "DISCOVERY":
+                        print(f"[CAM-EST] Recebido pedido de descoberta do Gateway")
+                        time.sleep(0.4)
+                        self.anunciar_presenca()
+                except:
+                    pass
+            except socket.timeout:
+                continue
+            except:
+                break
 
     def ouvir_comandos(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -90,7 +116,7 @@ class CameraEstacionamento:
                                  self.resolucao = param
                                  print(f"[CONFIG] Resolucao alterada para: {self.resolucao}")
                             else:
-                                 print(f"[ERRO] Camera desligada. Nao foi possivel alterar a resolucao.")
+                                 print(f"[ERRO] Camera desligada.")
 
                 except: pass
                 client.close()
@@ -100,8 +126,12 @@ class CameraEstacionamento:
                 break
 
     def start(self):
-        t = threading.Thread(target=self.ouvir_comandos, daemon=True)
-        t.start()
+        t1 = threading.Thread(target=self.ouvir_comandos, daemon=True)
+        t1.start()
+        
+        t2 = threading.Thread(target=self.ouvir_discovery, daemon=True)
+        t2.start()
+        
         time.sleep(1) 
         self.anunciar_presenca()
         

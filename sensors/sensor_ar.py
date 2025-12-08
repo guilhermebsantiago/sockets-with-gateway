@@ -17,7 +17,6 @@ MCAST_PORT = config.MCAST_PORT
 running = True
 
 def enviar_desregistro():
-    """Envia mensagem de DESREGISTRO ao encerrar"""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack('b', 1))
@@ -58,6 +57,33 @@ class SensorQualidadeAr:
         
         print(f"[AQI] Anunciando presenca via Multicast (porta {MINHA_PORTA_TCP})...")
         sock.sendto(msg.SerializeToString(), (MCAST_GRP, MCAST_PORT))
+        sock.close()
+
+    def ouvir_discovery(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('', MCAST_PORT))
+        sock.settimeout(1.0)
+        
+        mreq = struct.pack("4sl", socket.inet_aton(MCAST_GRP), socket.INADDR_ANY)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        
+        while running:
+            try:
+                data, addr = sock.recvfrom(1024)
+                try:
+                    msg = proto.Mensagem()
+                    msg.ParseFromString(data)
+                    if msg.tipo_mensagem == "DISCOVERY":
+                        print(f"[AQI] Recebido pedido de descoberta do Gateway")
+                        time.sleep(0.6)
+                        self.anunciar_presenca()
+                except:
+                    pass
+            except socket.timeout:
+                continue
+            except:
+                break
 
     def enviar_leitura(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -81,6 +107,8 @@ class SensorQualidadeAr:
 
     def start(self):
         threading.Thread(target=self.enviar_leitura, daemon=True).start()
+        threading.Thread(target=self.ouvir_discovery, daemon=True).start()
+        
         time.sleep(1)
         self.anunciar_presenca()
         

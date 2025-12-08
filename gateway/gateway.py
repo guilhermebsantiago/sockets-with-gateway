@@ -3,6 +3,7 @@ import struct
 import threading
 import signal
 import sys
+import time
 import iot_pb2 as proto
 
 running = True
@@ -33,6 +34,22 @@ class IoTGateway:
 
     def log(self, msg):
         print(f"[GATEWAY] {msg}")
+
+    def enviar_discovery(self):
+        """Envia mensagem de descoberta pedindo para dispositivos se anunciarem"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack('b', 1))
+            
+            msg = proto.Mensagem()
+            msg.id_origem = "gateway"
+            msg.tipo_mensagem = "DISCOVERY"
+            
+            self.log("Enviando pedido de descoberta via Multicast...")
+            sock.sendto(msg.SerializeToString(), (self.MCAST_GRP, self.MCAST_PORT))
+            sock.close()
+        except Exception as e:
+            self.log(f"Erro ao enviar discovery: {e}")
 
     # --- 1. DESCOBERTA (UDP MULTICAST) ---
     def iniciar_descoberta(self):
@@ -163,6 +180,10 @@ class IoTGateway:
                     for d_id, info in self.dispositivos.items():
                         msg = f"[REGISTRO] {d_id}:{info['tipo']}:{info['porta']}\n"
                         client.send(msg.encode())
+                elif parts[0] == "DISCOVERY":
+                    # Comando para forcar descoberta
+                    self.enviar_discovery()
+                    client.send(b"[OK] Pedido de descoberta enviado\n")
                 elif len(parts) == 3:
                     self.enviar_comando_device(parts[0], parts[1], parts[2])
                     client.send(f"[OK] Comando enviado para {parts[0]}\n".encode())
@@ -230,12 +251,22 @@ class IoTGateway:
         t3.start()
         
         self.log("Gateway iniciado! Pressione Ctrl+C para encerrar.")
+        
+        # Aguardar threads iniciarem
+        time.sleep(1)
+        
+        # Enviar pedido de descoberta para encontrar dispositivos ja rodando
+        self.enviar_discovery()
+        
+        # Enviar novamente apos alguns segundos (caso algum dispositivo nao tenha respondido)
+        time.sleep(2)
+        self.enviar_discovery()
+        
         self.log(f"Dispositivos registrados: {len(self.dispositivos)}")
         
         try:
             while running:
                 # Loop principal - permite Ctrl+C funcionar
-                import time
                 time.sleep(0.5)
         except KeyboardInterrupt:
             pass
