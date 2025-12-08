@@ -9,7 +9,9 @@ import {
   Power,
   Clock,
   Wifi,
-  Save
+  Save,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { useDeviceStore } from '../store/deviceStore';
 import type { DeviceType } from '../types/device';
@@ -52,6 +54,27 @@ export function DeviceDetails() {
     configureDevice(device.id, localConfig);
   };
   
+  // Verificar alerta atual
+  const checkAlert = () => {
+    if (!device.sensorData) return null;
+    
+    if (device.type === 'temperature_sensor') {
+      const minTemp = (localConfig.alertMinTemp as number) ?? 0;
+      const maxTemp = (localConfig.alertMaxTemp as number) ?? 40;
+      if (device.sensorData.value < minTemp) return `Abaixo de ${minTemp}°C`;
+      if (device.sensorData.value > maxTemp) return `Acima de ${maxTemp}°C`;
+    }
+    
+    if (device.type === 'air_quality_sensor') {
+      const threshold = (localConfig.alertThreshold as number) ?? 100;
+      if (device.sensorData.value > threshold) return `AQI acima de ${threshold}`;
+    }
+    
+    return null;
+  };
+  
+  const alertMessage = checkAlert();
+  
   const renderConfigFields = () => {
     switch (device.type) {
       case 'camera':
@@ -69,24 +92,6 @@ export function DeviceDetails() {
                 <option value="4K">4K Ultra HD</option>
               </select>
             </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-slate-300">Visão Noturna</span>
-              <button
-                onClick={() => setLocalConfig({ ...localConfig, nightVision: !localConfig.nightVision })}
-                className={`w-12 h-6 rounded-full transition-colors ${localConfig.nightVision ? 'bg-accent-cyan' : 'bg-slate-700'}`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${localConfig.nightVision ? 'translate-x-6' : 'translate-x-0.5'}`} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-slate-300">Detecção de Movimento</span>
-              <button
-                onClick={() => setLocalConfig({ ...localConfig, motionDetection: !localConfig.motionDetection })}
-                className={`w-12 h-6 rounded-full transition-colors ${localConfig.motionDetection ? 'bg-accent-cyan' : 'bg-slate-700'}`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${localConfig.motionDetection ? 'translate-x-6' : 'translate-x-0.5'}`} />
-              </button>
-            </div>
           </>
         );
         
@@ -94,7 +99,7 @@ export function DeviceDetails() {
         return (
           <>
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Estado Atual</label>
+              <label className="block text-sm text-slate-400 mb-2">Mudar Cor Manualmente</label>
               <div className="flex gap-3">
                 {(['red', 'yellow', 'green'] as const).map((color) => (
                   <button
@@ -117,38 +122,12 @@ export function DeviceDetails() {
                 ))}
               </div>
             </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Tempo Vermelho (segundos)</label>
-              <input
-                type="number"
-                value={localConfig.redDuration as number || 30}
-                onChange={(e) => setLocalConfig({ ...localConfig, redDuration: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
-                min={5}
-                max={120}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Tempo Amarelo (segundos)</label>
-              <input
-                type="number"
-                value={localConfig.yellowDuration as number || 5}
-                onChange={(e) => setLocalConfig({ ...localConfig, yellowDuration: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
-                min={2}
-                max={10}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Tempo Verde (segundos)</label>
-              <input
-                type="number"
-                value={localConfig.greenDuration as number || 30}
-                onChange={(e) => setLocalConfig({ ...localConfig, greenDuration: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
-                min={5}
-                max={120}
-              />
+            <div className="flex items-start gap-2 p-3 bg-slate-800/50 rounded-lg">
+              <Info size={16} className="text-slate-500 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-slate-500">
+                O semáforo muda automaticamente a cada 10 segundos. 
+                Use os botões acima para forçar uma mudança manual.
+              </p>
             </div>
           </>
         );
@@ -157,7 +136,7 @@ export function DeviceDetails() {
         return (
           <>
             <div>
-              <label className="block text-sm text-slate-400 mb-2">Brilho ({localConfig.brightness || 100}%)</label>
+              <label className="block text-sm text-slate-400 mb-2">Luminosidade ({localConfig.brightness || 100}%)</label>
               <input
                 type="range"
                 value={localConfig.brightness as number || 100}
@@ -166,55 +145,67 @@ export function DeviceDetails() {
                 min={0}
                 max={100}
               />
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-slate-300">Modo Automático</span>
-              <button
-                onClick={() => setLocalConfig({ ...localConfig, autoMode: !localConfig.autoMode })}
-                className={`w-12 h-6 rounded-full transition-colors ${localConfig.autoMode ? 'bg-accent-cyan' : 'bg-slate-700'}`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${localConfig.autoMode ? 'translate-x-6' : 'translate-x-0.5'}`} />
-              </button>
+              <div className="flex justify-between text-xs text-slate-600 mt-1">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
+              </div>
             </div>
           </>
         );
         
       case 'air_quality_sensor':
         return (
-          <div>
-            <label className="block text-sm text-slate-400 mb-2">Limite de Alerta (AQI)</label>
-            <input
-              type="number"
-              value={localConfig.alertThreshold as number || 100}
-              onChange={(e) => setLocalConfig({ ...localConfig, alertThreshold: parseInt(e.target.value) })}
-              className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
-              min={0}
-              max={500}
-            />
-          </div>
+          <>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2">Limite de Alerta (AQI)</label>
+              <input
+                type="number"
+                value={localConfig.alertThreshold as number || 100}
+                onChange={(e) => setLocalConfig({ ...localConfig, alertThreshold: parseInt(e.target.value) })}
+                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
+                min={0}
+                max={500}
+              />
+              <p className="text-xs text-slate-500 mt-2">
+                Alerta será exibido quando o AQI ultrapassar este valor.
+              </p>
+            </div>
+            <div className="p-3 bg-slate-800/50 rounded-lg">
+              <p className="text-xs text-slate-500">
+                <strong>Referência AQI:</strong><br/>
+                0-50: Bom | 51-100: Moderado | 101-150: Insalubre (sensíveis) | 151+: Insalubre
+              </p>
+            </div>
+          </>
         );
         
       case 'temperature_sensor':
         return (
           <>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Temperatura Mínima Alerta (°C)</label>
-              <input
-                type="number"
-                value={localConfig.alertMinTemp as number || 0}
-                onChange={(e) => setLocalConfig({ ...localConfig, alertMinTemp: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Temp. Mínima (°C)</label>
+                <input
+                  type="number"
+                  value={localConfig.alertMinTemp as number || 0}
+                  onChange={(e) => setLocalConfig({ ...localConfig, alertMinTemp: parseInt(e.target.value) })}
+                  className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Temp. Máxima (°C)</label>
+                <input
+                  type="number"
+                  value={localConfig.alertMaxTemp as number || 40}
+                  onChange={(e) => setLocalConfig({ ...localConfig, alertMaxTemp: parseInt(e.target.value) })}
+                  className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm text-slate-400 mb-2">Temperatura Máxima Alerta (°C)</label>
-              <input
-                type="number"
-                value={localConfig.alertMaxTemp as number || 40}
-                onChange={(e) => setLocalConfig({ ...localConfig, alertMaxTemp: parseInt(e.target.value) })}
-                className="w-full px-4 py-3 bg-primary-50 border border-slate-700 rounded-xl text-slate-100 outline-none focus:border-accent-cyan transition-all"
-              />
-            </div>
+            <p className="text-xs text-slate-500">
+              Alerta será exibido quando a temperatura sair desta faixa.
+            </p>
           </>
         );
     }
@@ -262,6 +253,17 @@ export function DeviceDetails() {
             
             {/* Content */}
             <div className="p-6 space-y-6">
+              {/* Alert Banner */}
+              {alertMessage && (
+                <div className="flex items-center gap-3 p-4 bg-accent-red/10 border border-accent-red/30 rounded-xl">
+                  <AlertTriangle size={20} className="text-accent-red flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-accent-red">Alerta Ativo</p>
+                    <p className="text-xs text-slate-400">{alertMessage}</p>
+                  </div>
+                </div>
+              )}
+              
               {/* Status */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-primary-100 rounded-xl p-4">
@@ -305,11 +307,13 @@ export function DeviceDetails() {
               
               {/* Sensor Data */}
               {device.sensorData && (
-                <div className="bg-primary-100 rounded-xl p-4">
+                <div className={`bg-primary-100 rounded-xl p-4 ${alertMessage ? 'ring-2 ring-accent-red/50' : ''}`}>
                   <h3 className="text-sm font-medium text-slate-400 mb-3">Dados do Sensor</h3>
                   <div className="text-center py-4">
-                    <span className="text-4xl font-bold font-mono text-accent-cyan">
-                      {device.sensorData.value}
+                    <span className={`text-4xl font-bold font-mono ${alertMessage ? 'text-accent-red' : 'text-accent-cyan'}`}>
+                      {typeof device.sensorData.value === 'number' 
+                        ? device.sensorData.value.toFixed(1) 
+                        : device.sensorData.value}
                     </span>
                     <span className="text-xl text-slate-500 ml-2">{device.sensorData.unit}</span>
                   </div>
@@ -319,25 +323,34 @@ export function DeviceDetails() {
               {/* Power Control */}
               {!isSensor && (
                 <div className="bg-primary-100 rounded-xl p-4">
-                  <h3 className="text-sm font-medium text-slate-400 mb-3">Controle de Energia</h3>
+                  <h3 className="text-sm font-medium text-slate-400 mb-3">Controle</h3>
                   <button
                     onClick={() => toggleDevice(device.id)}
                     disabled={device.status === 'offline'}
                     className={`w-full flex items-center justify-center gap-3 py-4 rounded-xl font-semibold transition-all ${
-                      device.isOn
-                        ? 'bg-accent-green text-primary hover:bg-accent-green-dim'
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                      device.type === 'traffic_light'
+                        ? 'bg-accent-amber text-primary hover:bg-accent-amber/80'
+                        : device.isOn
+                          ? 'bg-accent-green text-primary hover:bg-accent-green/80'
+                          : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     <Power size={20} />
-                    {device.isOn ? 'Desligar Dispositivo' : 'Ligar Dispositivo'}
+                    {device.type === 'traffic_light' 
+                      ? 'Mudar Cor' 
+                      : device.isOn 
+                        ? 'Desligar' 
+                        : 'Ligar'
+                    }
                   </button>
                 </div>
               )}
               
               {/* Configuration */}
               <div className="bg-primary-100 rounded-xl p-4">
-                <h3 className="text-sm font-medium text-slate-400 mb-4">Configurações</h3>
+                <h3 className="text-sm font-medium text-slate-400 mb-4">
+                  {isSensor ? 'Configurações de Alerta' : 'Configurações'}
+                </h3>
                 <div className="space-y-4">
                   {renderConfigFields()}
                 </div>
@@ -346,7 +359,7 @@ export function DeviceDetails() {
               {/* Save Button */}
               <button
                 onClick={handleSave}
-                className="w-full btn-primary flex items-center justify-center gap-2 py-4"
+                className="w-full bg-accent-cyan hover:bg-accent-cyan/80 text-primary font-semibold flex items-center justify-center gap-2 py-4 rounded-xl transition-all"
               >
                 <Save size={18} />
                 Salvar Configurações
@@ -358,6 +371,3 @@ export function DeviceDetails() {
     </AnimatePresence>
   );
 }
-
-
-

@@ -25,14 +25,14 @@ function mapDeviceType(tipoGateway: string, id: string): DeviceType {
   const idLower = id.toLowerCase();
   if (idLower.includes('semaforo')) return 'traffic_light';
   if (idLower.includes('poste') || idLower.includes('luz')) return 'street_lamp';
-  if (idLower.includes('radar')) return 'camera';
+  if (idLower.includes('radar') || idLower.includes('camera') || idLower.includes('cam')) return 'camera';
   if (idLower.includes('temp')) return 'temperature_sensor';
   if (idLower.includes('ar') || idLower.includes('air') || idLower.includes('qualidade')) return 'air_quality_sensor';
   
   // Por tipo do gateway
   if (tipoGateway === 'SENSOR') return 'temperature_sensor';
-  if (tipoGateway === 'ATUADOR') return 'street_lamp';
-  return 'camera'; // MISTO
+  if (tipoGateway === 'MISTO') return 'camera';
+  return 'camera'; // ATUADOR genérico
 }
 
 // Formatar nome do dispositivo
@@ -178,6 +178,27 @@ function parseGatewayMessage(line: string): void {
         payload: device,
         timestamp: new Date().toISOString(),
       });
+    }
+    
+    // Caso especial: Semáforo envia cor como "unidade"
+    if (tipoLeitura.trim() === 'COR_SEMAFORO') {
+      const cor = unidade.trim().toLowerCase();
+      let currentState = 'red';
+      if (cor === 'verde' || cor === 'green') currentState = 'green';
+      else if (cor === 'amarelo' || cor === 'yellow') currentState = 'yellow';
+      else currentState = 'red';
+      
+      device.config.currentState = currentState;
+      device.lastUpdate = new Date().toISOString();
+      
+      console.log(`🚦 Semáforo [${deviceId}]: ${cor} -> ${currentState}`);
+      
+      broadcast({
+        type: 'device_update',
+        payload: device,
+        timestamp: new Date().toISOString(),
+      });
+      return;
     }
     
     // Atualizar dados do sensor

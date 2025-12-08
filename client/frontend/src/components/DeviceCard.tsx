@@ -8,7 +8,8 @@ import {
   Power,
   Settings,
   Circle,
-  AlertTriangle
+  AlertTriangle,
+  Sun
 } from 'lucide-react';
 import type { Device, DeviceType } from '../types/device';
 import { useDeviceStore } from '../store/deviceStore';
@@ -122,6 +123,11 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
     : null;
   const trafficLight = trafficLightState ? trafficLightColors[trafficLightState] || trafficLightColors.red : null;
   
+  // Luminosidade do poste
+  const brightness = device.type === 'street_lamp' 
+    ? (device.config.brightness as number ?? 100)
+    : null;
+  
   // Texto do botão para semáforo
   const getButtonText = () => {
     if (device.type === 'traffic_light') {
@@ -187,6 +193,25 @@ export function DeviceCard({ device, index }: DeviceCardProps) {
           <div className="mt-3 flex items-center gap-3">
             <div className={`w-8 h-8 rounded-full ${trafficLight.bg} ${trafficLight.glow}`} />
             <span className="text-lg font-semibold text-slate-200">{trafficLight.label}</span>
+          </div>
+        )}
+        
+        {/* Luminosidade do Poste */}
+        {device.type === 'street_lamp' && brightness !== null && (
+          <div className="mt-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Sun size={16} className="text-accent-cyan" />
+              <span className="text-sm text-slate-400">Luminosidade</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-accent-cyan to-accent-purple transition-all duration-300"
+                  style={{ width: `${brightness}%` }}
+                />
+              </div>
+              <span className="text-lg font-bold font-mono text-accent-cyan">{brightness}%</span>
+            </div>
           </div>
         )}
         
