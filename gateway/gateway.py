@@ -4,6 +4,7 @@ import threading
 import signal
 import sys
 import time
+import os
 import iot_pb2 as proto
 
 running = True
@@ -18,16 +19,15 @@ signal.signal(signal.SIGINT, signal_handler)
 
 class IoTGateway:
     def __init__(self):
-        # Configuracoes de Rede
-        self.HOST = '0.0.0.0'
-        self.PORTA_CLIENTES = 9000  # Onde o usuario conecta (TCP)
-        self.PORTA_DADOS = 9001     # Onde sensores mandam dados (UDP)
+        # Configuracoes de Rede (via .env ou valores padrao)
+        self.HOST = os.getenv('GATEWAY_HOST', '0.0.0.0')
+        self.PORTA_CLIENTES = int(os.getenv('GATEWAY_CLIENT_PORT', '9000'))
+        self.PORTA_DADOS = int(os.getenv('GATEWAY_UDP_PORT', '9001'))
         
         # Multicast
-        self.MCAST_GRP = '224.1.1.1'
-        self.MCAST_PORT = 5007
+        self.MCAST_GRP = os.getenv('MCAST_GRP', '224.1.1.1')
+        self.MCAST_PORT = int(os.getenv('MCAST_PORT', '5007'))
 
-        # Tabela de Roteamento { 'id': {'ip': '...', 'porta': 1234, 'tipo': '...'} }
         self.dispositivos = {} 
         self.clientes = []
         self.sockets = []
