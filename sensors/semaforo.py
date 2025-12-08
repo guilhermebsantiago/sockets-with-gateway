@@ -2,6 +2,8 @@ import socket
 import struct
 import threading
 import time
+import signal
+import sys
 import iot_pb2 as proto
 
 # Configurações
@@ -10,9 +12,20 @@ MINHA_PORTA_TCP = 8001
 MCAST_GRP = '224.1.1.1'
 MCAST_PORT = 5007
 
+running = True
+
+def signal_handler(sig, frame):
+    global running
+    print("\n[SEMAFORO] Encerrando...")
+    running = False
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
 class Semaforo:
     def __init__(self):
         self.cor_atual = "VERMELHO"
+        self.server = None
 
     def anunciar_presenca(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -22,36 +35,51 @@ class Semaforo:
         msg.id_origem = MEU_ID
         msg.tipo_mensagem = "REGISTRO"
         msg.registro.porta = MINHA_PORTA_TCP
-        msg.registro.tipo_dispositivo = "ATUADOR" # Semáforo é atuador
+        msg.registro.tipo_dispositivo = "ATUADOR"
         
-        print(f"🚦 [SEMAFORO] Anunciando presença via Multicast...")
+        print(f"[SEMAFORO] Anunciando presenca via Multicast...")
         sock.sendto(msg.SerializeToString(), (MCAST_GRP, MCAST_PORT))
 
     def ouvir_comandos(self):
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind(('0.0.0.0', MINHA_PORTA_TCP))
-        server.listen(5)
-        print(f"🚦 [SEMAFORO] Aguardando comandos na porta {MINHA_PORTA_TCP}")
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server.bind(('0.0.0.0', MINHA_PORTA_TCP))
+        self.server.listen(5)
+        self.server.settimeout(1.0)
+        print(f"[SEMAFORO] Aguardando comandos na porta {MINHA_PORTA_TCP}")
 
-        while True:
-            client, _ = server.accept()
+        while running:
             try:
-                data = client.recv(1024)
-                msg = proto.Mensagem()
-                msg.ParseFromString(data)
-                
-                if msg.tipo_mensagem == "COMANDO":
-                    nova_cor = msg.comando.param
-                    self.cor_atual = nova_cor
-                    print(f"🚦 [ACAO] Mudando luz para: {self.cor_atual}")
-            except: pass
-            client.close()
+                client, _ = self.server.accept()
+                try:
+                    data = client.recv(1024)
+                    msg = proto.Mensagem()
+                    msg.ParseFromString(data)
+                    
+                    if msg.tipo_mensagem == "COMANDO":
+                        nova_cor = msg.comando.param
+                        self.cor_atual = nova_cor
+                        print(f"[ACAO] Mudando luz para: {self.cor_atual}")
+                except: pass
+                client.close()
+            except socket.timeout:
+                continue
+            except:
+                break
 
     def start(self):
-        t = threading.Thread(target=self.ouvir_comandos)
+        t = threading.Thread(target=self.ouvir_comandos, daemon=True)
         t.start()
-        time.sleep(1) # Espera thread subir
+        time.sleep(1)
         self.anunciar_presenca()
+        
+        # Manter main thread vivo
+        try:
+            while running:
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            pass
 
 if __name__ == "__main__":
+    print("[SEMAFORO] Iniciando... (Ctrl+C para encerrar)")
     Semaforo().start()

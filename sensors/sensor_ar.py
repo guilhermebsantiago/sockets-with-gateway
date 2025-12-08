@@ -3,18 +3,28 @@ import struct
 import threading
 import time
 import random
+import signal
+import sys
 import iot_pb2 as proto
 
-# Configurações Específicas
 MEU_ID = "sensor_qualidade_ar_01"
-MINHA_PORTA_TCP = 8007 # Porta TCP é necessária apenas para REGISTRO (opcional)
+MINHA_PORTA_TCP = 8007
 GATEWAY_UDP_PORT = 9001
 MCAST_GRP = '224.1.1.1'
 MCAST_PORT = 5007
 
+running = True
+
+def signal_handler(sig, frame):
+    global running
+    print("\n[AQI] Encerrando...")
+    running = False
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
 class SensorQualidadeAr:
     def __init__(self):
-        # Simula o Índice de Qualidade do Ar (AQI) - 0 a 50 (Bom), 51 a 100 (Moderado), etc.
         self.aqi_atual = 50 
 
     def anunciar_presenca(self):
@@ -27,17 +37,18 @@ class SensorQualidadeAr:
         msg.registro.porta = MINHA_PORTA_TCP
         msg.registro.tipo_dispositivo = "SENSOR"
         
-        print(f"☁️ [AQI] Anunciando presença via Multicast...")
+        print(f"[AQI] Anunciando presenca via Multicast...")
         sock.sendto(msg.SerializeToString(), (MCAST_GRP, MCAST_PORT))
 
     def enviar_leitura(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        while True:
-            time.sleep(20) # Envia a cada 20 segundos
+        while running:
+            time.sleep(20)
+            if not running:
+                break
             
-            # Simula uma variação no AQI
             variacao = random.randint(-5, 5)
-            self.aqi_atual = max(0, min(150, self.aqi_atual + variacao)) # Limita entre 0 e 150
+            self.aqi_atual = max(0, min(150, self.aqi_atual + variacao))
             
             msg = proto.Mensagem()
             msg.id_origem = MEU_ID
@@ -46,14 +57,20 @@ class SensorQualidadeAr:
             msg.dados.unidade = "AQI"
             msg.dados.tipo_leitura = "QUALIDADE_AR"
             
-            print(f"☁️ [ENVIO] Índice de Qualidade do Ar (AQI): {self.aqi_atual}")
-            # Envio para o Gateway via UDP
+            print(f"[ENVIO] Indice de Qualidade do Ar (AQI): {self.aqi_atual}")
             sock.sendto(msg.SerializeToString(), ('localhost', GATEWAY_UDP_PORT))
 
     def start(self):
-        threading.Thread(target=self.enviar_leitura).start()
+        threading.Thread(target=self.enviar_leitura, daemon=True).start()
         time.sleep(1)
         self.anunciar_presenca()
+        
+        try:
+            while running:
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            pass
 
 if __name__ == "__main__":
+    print("[AQI] Iniciando... (Ctrl+C para encerrar)")
     SensorQualidadeAr().start()
