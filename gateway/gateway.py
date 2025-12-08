@@ -1,11 +1,23 @@
 import socket
 import struct
 import threading
+import signal
+import sys
 import iot_pb2 as proto
+
+running = True
+
+def signal_handler(sig, frame):
+    global running
+    print("\n[GATEWAY] Encerrando...")
+    running = False
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 class IoTGateway:
     def __init__(self):
-        # Configurações de Rede
+        # Configuracoes de Rede
         self.HOST = '0.0.0.0'
         self.PORTA_CLIENTES = 9000  # Onde o usuario conecta (TCP)
         self.PORTA_DADOS = 9001     # Onde sensores mandam dados (UDP)
@@ -17,6 +29,7 @@ class IoTGateway:
         # Tabela de Roteamento { 'id': {'ip': '...', 'porta': 1234, 'tipo': '...'} }
         self.dispositivos = {} 
         self.clientes = []
+        self.sockets = []
 
     def log(self, msg):
         print(f"[GATEWAY] {msg}")
@@ -26,6 +39,8 @@ class IoTGateway:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(('', self.MCAST_PORT))
+        sock.settimeout(1.0)  # Timeout para permitir verificar flag running
+        self.sockets.append(sock)
         
         # Entra no grupo Multicast
         mreq = struct.pack("4sl", socket.inet_aton(self.MCAST_GRP), socket.INADDR_ANY)
@@ -33,48 +48,76 @@ class IoTGateway:
         
         self.log(f"Aguardando dispositivos via Multicast em {self.MCAST_GRP}:{self.MCAST_PORT}")
 
-        while True:
-            data, addr = sock.recvfrom(1024)
+        while running:
             try:
-                msg = proto.Mensagem()
-                msg.ParseFromString(data)
-                
-                if msg.tipo_mensagem == "REGISTRO":
-                    d_id = msg.id_origem
-                    self.dispositivos[d_id] = {
-                        'ip': addr[0], 
-                        'porta': msg.registro.porta,
-                        'tipo': msg.registro.tipo_dispositivo
-                    }
-                    self.log(f"Novo dispositivo registrado: {d_id} ({msg.registro.tipo_dispositivo})")
-                    # Notificar clientes sobre novo dispositivo
-                    self.broadcast_clientes(f"[REGISTRO] {d_id}:{msg.registro.tipo_dispositivo}:{msg.registro.porta}")
-                
-                elif msg.tipo_mensagem == "DESREGISTRO":
-                    d_id = msg.id_origem
-                    if d_id in self.dispositivos:
-                        del self.dispositivos[d_id]
-                        self.log(f"Dispositivo desregistrado: {d_id}")
-                        # Notificar clientes que dispositivo foi removido
-                        self.broadcast_clientes(f"[DESREGISTRO] {d_id}")
-            except: pass
+                data, addr = sock.recvfrom(1024)
+                try:
+                    msg = proto.Mensagem()
+                    msg.ParseFromString(data)
+                    
+                    if msg.tipo_mensagem == "REGISTRO":
+                        d_id = msg.id_origem
+                        is_new = d_id not in self.dispositivos
+                        self.dispositivos[d_id] = {
+                            'ip': addr[0], 
+                            'porta': msg.registro.porta,
+                            'tipo': msg.registro.tipo_dispositivo
+                        }
+                        if is_new:
+                            self.log(f"Novo dispositivo registrado: {d_id} ({msg.registro.tipo_dispositivo})")
+                        else:
+                            self.log(f"Dispositivo reconectado: {d_id}")
+                        # Notificar clientes sobre novo dispositivo
+                        self.broadcast_clientes(f"[REGISTRO] {d_id}:{msg.registro.tipo_dispositivo}:{msg.registro.porta}")
+                    
+                    elif msg.tipo_mensagem == "DESREGISTRO":
+                        d_id = msg.id_origem
+                        if d_id in self.dispositivos:
+                            del self.dispositivos[d_id]
+                            self.log(f"Dispositivo desregistrado: {d_id}")
+                            # Notificar clientes que dispositivo foi removido
+                            self.broadcast_clientes(f"[DESREGISTRO] {d_id}")
+                except: pass
+            except socket.timeout:
+                continue
+            except:
+                break
 
     # --- 2. DADOS DE SENSORES (UDP) ---
     def iniciar_dados(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((self.HOST, self.PORTA_DADOS))
+        sock.settimeout(1.0)
+        self.sockets.append(sock)
         self.log(f"Ouvindo dados de sensores na porta {self.PORTA_DADOS}")
 
-        while True:
-            data, _ = sock.recvfrom(1024)
+        while running:
             try:
-                msg = proto.Mensagem()
-                msg.ParseFromString(data)
-                if msg.tipo_mensagem == "DADOS":
-                    txt = f"[{msg.id_origem}] {msg.dados.tipo_leitura}: {msg.dados.valor:.1f} {msg.dados.unidade}"
-                    print(f" -> {txt}")
-                    self.broadcast_clientes(txt)
-            except: pass
+                data, addr = sock.recvfrom(1024)
+                try:
+                    msg = proto.Mensagem()
+                    msg.ParseFromString(data)
+                    if msg.tipo_mensagem == "DADOS":
+                        # Registrar dispositivo automaticamente se nao existir
+                        d_id = msg.id_origem
+                        if d_id not in self.dispositivos:
+                            self.dispositivos[d_id] = {
+                                'ip': addr[0],
+                                'porta': 0,  # Sensor UDP nao tem porta TCP
+                                'tipo': 'SENSOR'
+                            }
+                            self.log(f"Sensor descoberto via dados: {d_id}")
+                            self.broadcast_clientes(f"[REGISTRO] {d_id}:SENSOR:0")
+                        
+                        txt = f"[{msg.id_origem}] {msg.dados.tipo_leitura}: {msg.dados.valor:.1f} {msg.dados.unidade}"
+                        print(f" -> {txt}")
+                        self.broadcast_clientes(txt)
+                except: pass
+            except socket.timeout:
+                continue
+            except:
+                break
 
     # --- 3. CONTROLE DE CLIENTES (TCP) ---
     def iniciar_clientes(self):
@@ -82,25 +125,33 @@ class IoTGateway:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((self.HOST, self.PORTA_CLIENTES))
         server.listen(5)
-        self.log(f"Painel de Controle disponível na porta {self.PORTA_CLIENTES}")
+        server.settimeout(1.0)
+        self.sockets.append(server)
+        self.log(f"Painel de Controle disponivel na porta {self.PORTA_CLIENTES}")
         
-        while True:
-            client, addr = server.accept()
-            self.clientes.append(client)
-            self.log(f"Cliente conectado: {addr}")
-            threading.Thread(target=self.handle_client, args=(client,)).start()
+        while running:
+            try:
+                client, addr = server.accept()
+                self.clientes.append(client)
+                self.log(f"Cliente conectado: {addr}")
+                threading.Thread(target=self.handle_client, args=(client,), daemon=True).start()
+            except socket.timeout:
+                continue
+            except:
+                break
 
     def handle_client(self, client):
         client.send(b"Conectado. Use: ID:ACAO:PARAM\n")
+        client.settimeout(1.0)
         
-        # Enviar lista de dispositivos já registrados
+        # Enviar lista de dispositivos ja registrados
         for d_id, info in self.dispositivos.items():
             msg = f"[REGISTRO] {d_id}:{info['tipo']}:{info['porta']}\n"
             try:
                 client.send(msg.encode())
             except: pass
         
-        while True:
+        while running:
             try:
                 data = client.recv(1024)
                 if not data: break
@@ -117,6 +168,8 @@ class IoTGateway:
                     client.send(f"[OK] Comando enviado para {parts[0]}\n".encode())
                 else:
                     client.send(b"Formato invalido. Use: ID:ACAO:PARAM\n")
+            except socket.timeout:
+                continue
             except:
                 if client in self.clientes:
                     self.clientes.remove(client)
@@ -125,8 +178,11 @@ class IoTGateway:
     def enviar_comando_device(self, d_id, acao, param):
         if d_id in self.dispositivos:
             dev = self.dispositivos[d_id]
+            if dev['porta'] == 0:
+                self.log(f"Dispositivo {d_id} e apenas sensor (sem porta TCP)")
+                return
             try:
-                # Conexão TCP temporária para enviar o comando
+                # Conexao TCP temporaria para enviar o comando
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(5)
                 s.connect((dev['ip'], dev['porta']))
@@ -145,24 +201,48 @@ class IoTGateway:
             self.log(f"Dispositivo {d_id} desconhecido.")
 
     def broadcast_clientes(self, txt):
-        for c in self.clientes[:]:  # Cópia da lista para evitar problemas
+        for c in self.clientes[:]:  # Copia da lista para evitar problemas
             try: 
                 c.send(f"{txt}\n".encode())
             except: 
                 if c in self.clientes:
                     self.clientes.remove(c)
 
+    def cleanup(self):
+        """Limpa recursos ao encerrar"""
+        for sock in self.sockets:
+            try:
+                sock.close()
+            except:
+                pass
+        for client in self.clientes:
+            try:
+                client.close()
+            except:
+                pass
+
     def start(self):
         t1 = threading.Thread(target=self.iniciar_descoberta, daemon=True)
         t2 = threading.Thread(target=self.iniciar_dados, daemon=True)
         t3 = threading.Thread(target=self.iniciar_clientes, daemon=True)
-        t1.start(); t2.start(); t3.start()
+        t1.start()
+        t2.start()
+        t3.start()
         
         self.log("Gateway iniciado! Pressione Ctrl+C para encerrar.")
+        self.log(f"Dispositivos registrados: {len(self.dispositivos)}")
+        
         try:
-            t1.join(); t2.join(); t3.join()
+            while running:
+                # Loop principal - permite Ctrl+C funcionar
+                import time
+                time.sleep(0.5)
         except KeyboardInterrupt:
-            self.log("Encerrando...")
+            pass
+        finally:
+            self.log("Encerrando gateway...")
+            self.cleanup()
 
 if __name__ == "__main__":
+    print("[GATEWAY] Iniciando... (Ctrl+C para encerrar)")
     IoTGateway().start()

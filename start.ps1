@@ -2,11 +2,12 @@
 # Smart City - Script de Inicializacao
 # ============================================
 # Execute: .\start.ps1
-# Para parar: Ctrl+C em cada terminal ou feche as janelas
+# Para parar: .\stop.ps1
 # ============================================
 
 $ErrorActionPreference = "SilentlyContinue"
 $projectRoot = $PSScriptRoot
+$pidFile = "$projectRoot\.pids"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
@@ -61,63 +62,84 @@ Write-Host ""
 Write-Host "Iniciando servicos..." -ForegroundColor Yellow
 Write-Host ""
 
+# Limpar arquivo de PIDs antigo
+if (Test-Path $pidFile) {
+    Remove-Item $pidFile -Force
+}
+
+# Array para guardar PIDs
+$pids = @()
+
 # 1. Gateway
 Write-Host "  [1/10] Gateway Central..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\gateway'; Write-Host 'GATEWAY' -ForegroundColor Cyan; python gateway.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'GATEWAY'; Set-Location '$projectRoot\gateway'; python gateway.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 2
 
 # 2. Semaforo
 Write-Host "  [2/10] Semaforo..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'SEMAFORO' -ForegroundColor Yellow; python semaforo.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'SEMAFORO'; Set-Location '$projectRoot\sensors'; python semaforo.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 1
 
 # 3. Poste
 Write-Host "  [3/10] Poste de Luz..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'POSTE' -ForegroundColor Yellow; python poste.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'POSTE'; Set-Location '$projectRoot\sensors'; python poste.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 1
 
 # 4. Radar
 Write-Host "  [4/10] Radar de Velocidade..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'RADAR' -ForegroundColor Yellow; python radar.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'RADAR'; Set-Location '$projectRoot\sensors'; python radar.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 1
 
 # 5. Camera Estacionamento
 Write-Host "  [5/10] Camera Estacionamento..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'CAMERA ESTACIONAMENTO' -ForegroundColor Yellow; python camera_estacionamento.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'CAM-EST'; Set-Location '$projectRoot\sensors'; python camera_estacionamento.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 1
 
 # 6. Camera Praca
 Write-Host "  [6/10] Camera Praca..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'CAMERA PRACA' -ForegroundColor Yellow; python camera_praca.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'CAM-PRACA'; Set-Location '$projectRoot\sensors'; python camera_praca.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 1
 
 # 7. Sensor de Ar
 Write-Host "  [7/10] Sensor de Ar..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'SENSOR AR' -ForegroundColor Yellow; python sensor_ar.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'SENSOR-AR'; Set-Location '$projectRoot\sensors'; python sensor_ar.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 1
 
 # 8. Sensor de Temperatura
 Write-Host "  [8/10] Sensor de Temperatura..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\sensors'; Write-Host 'SENSOR TEMPERATURA' -ForegroundColor Yellow; python sensor_temperatura.py" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'SENSOR-TEMP'; Set-Location '$projectRoot\sensors'; python sensor_temperatura.py" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 2
 
 # 9. Backend Node.js
 Write-Host "  [9/10] Backend (WebSocket)..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\client\backend'; Write-Host 'BACKEND' -ForegroundColor Magenta; npm run dev" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'BACKEND'; Set-Location '$projectRoot\client\backend'; npm run dev" -PassThru
+$pids += $proc.Id
 
 Start-Sleep -Seconds 2
 
 # 10. Frontend React
 Write-Host "  [10/10] Frontend (React)..." -ForegroundColor White
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$projectRoot\client\frontend'; Write-Host 'FRONTEND' -ForegroundColor Green; npm run dev" -WindowStyle Normal
+$proc = Start-Process powershell -ArgumentList "-NoExit", "-Command", "`$Host.UI.RawUI.WindowTitle = 'FRONTEND'; Set-Location '$projectRoot\client\frontend'; npm run dev" -PassThru
+$pids += $proc.Id
+
+# Salvar PIDs no arquivo
+$pids | Out-File -FilePath $pidFile
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
@@ -138,8 +160,7 @@ Write-Host "    Camera Praca" -ForegroundColor Yellow
 Write-Host "    Sensor Ar" -ForegroundColor Yellow
 Write-Host "    Sensor Temperatura" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  Para encerrar: feche todas as janelas" -ForegroundColor Gray
-Write-Host "  ou execute: .\stop.ps1" -ForegroundColor Gray
+Write-Host "  Para encerrar: .\stop.ps1" -ForegroundColor Gray
 Write-Host ""
 
 # Abrir navegador automaticamente apos 3 segundos
