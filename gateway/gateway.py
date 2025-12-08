@@ -14,7 +14,7 @@ class IoTGateway:
         self.MCAST_GRP = '224.1.1.1'
         self.MCAST_PORT = 5007
 
-        # Tabela de Roteamento { 'id': {'ip': '...', 'porta': 1234} }
+        # Tabela de Roteamento { 'id': {'ip': '...', 'porta': 1234, 'tipo': '...'} }
         self.dispositivos = {} 
         self.clientes = []
 
@@ -47,6 +47,8 @@ class IoTGateway:
                         'tipo': msg.registro.tipo_dispositivo
                     }
                     self.log(f"Novo dispositivo registrado: {d_id} ({msg.registro.tipo_dispositivo})")
+                    # Notificar clientes sobre novo dispositivo
+                    self.broadcast_clientes(f"[REGISTRO] {d_id}:{msg.registro.tipo_dispositivo}:{msg.registro.porta}")
             except: pass
 
     # --- 2. DADOS DE SENSORES (UDP) ---
@@ -69,17 +71,27 @@ class IoTGateway:
     # --- 3. CONTROLE DE CLIENTES (TCP) ---
     def iniciar_clientes(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((self.HOST, self.PORTA_CLIENTES))
         server.listen(5)
         self.log(f"Painel de Controle disponível na porta {self.PORTA_CLIENTES}")
         
         while True:
-            client, _ = server.accept()
+            client, addr = server.accept()
             self.clientes.append(client)
+            self.log(f"Cliente conectado: {addr}")
             threading.Thread(target=self.handle_client, args=(client,)).start()
 
     def handle_client(self, client):
         client.send(b"Conectado. Use: ID:ACAO:PARAM\n")
+        
+        # Enviar lista de dispositivos já registrados
+        for d_id, info in self.dispositivos.items():
+            msg = f"[REGISTRO] {d_id}:{info['tipo']}:{info['porta']}\n"
+            try:
+                client.send(msg.encode())
+            except: pass
+        
         while True:
             try:
                 data = client.recv(1024)
@@ -87,12 +99,19 @@ class IoTGateway:
                 cmd_str = data.decode().strip()
                 parts = cmd_str.split(':')
                 
-                if len(parts) == 3:
+                if parts[0] == "LISTAR":
+                    # Comando para listar dispositivos
+                    for d_id, info in self.dispositivos.items():
+                        msg = f"[REGISTRO] {d_id}:{info['tipo']}:{info['porta']}\n"
+                        client.send(msg.encode())
+                elif len(parts) == 3:
                     self.enviar_comando_device(parts[0], parts[1], parts[2])
+                    client.send(f"[OK] Comando enviado para {parts[0]}\n".encode())
                 else:
-                    client.send(b"Formato invalido.\n")
+                    client.send(b"Formato invalido. Use: ID:ACAO:PARAM\n")
             except:
-                self.clientes.remove(client)
+                if client in self.clientes:
+                    self.clientes.remove(client)
                 break
 
     def enviar_comando_device(self, d_id, acao, param):
@@ -101,6 +120,7 @@ class IoTGateway:
             try:
                 # Conexão TCP temporária para enviar o comando
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(5)
                 s.connect((dev['ip'], dev['porta']))
                 
                 msg = proto.Mensagem()
@@ -117,16 +137,24 @@ class IoTGateway:
             self.log(f"Dispositivo {d_id} desconhecido.")
 
     def broadcast_clientes(self, txt):
-        for c in self.clientes:
-            try: c.send(f"{txt}\n".encode())
-            except: pass
+        for c in self.clientes[:]:  # Cópia da lista para evitar problemas
+            try: 
+                c.send(f"{txt}\n".encode())
+            except: 
+                if c in self.clientes:
+                    self.clientes.remove(c)
 
     def start(self):
-        t1 = threading.Thread(target=self.iniciar_descoberta)
-        t2 = threading.Thread(target=self.iniciar_dados)
-        t3 = threading.Thread(target=self.iniciar_clientes)
+        t1 = threading.Thread(target=self.iniciar_descoberta, daemon=True)
+        t2 = threading.Thread(target=self.iniciar_dados, daemon=True)
+        t3 = threading.Thread(target=self.iniciar_clientes, daemon=True)
         t1.start(); t2.start(); t3.start()
-        t1.join(); t2.join(); t3.join()
+        
+        self.log("Gateway iniciado! Pressione Ctrl+C para encerrar.")
+        try:
+            t1.join(); t2.join(); t3.join()
+        except KeyboardInterrupt:
+            self.log("Encerrando...")
 
 if __name__ == "__main__":
     IoTGateway().start()
