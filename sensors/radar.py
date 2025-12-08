@@ -45,6 +45,7 @@ signal.signal(signal.SIGINT, signal_handler)
 class Radar:
     def __init__(self):
         self.resolucao = "720p"
+        self.ligado = True  # Estado ligado/desligado
 
     def anunciar_presenca(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -87,12 +88,13 @@ class Radar:
             except:
                 break
 
-    def ouvir_configuracao(self):
+    def ouvir_comandos(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(('0.0.0.0', MINHA_PORTA_TCP))
         server.listen(5)
         server.settimeout(1.0)
+        print(f"[RADAR] Aguardando comandos na porta {MINHA_PORTA_TCP}")
         
         while running:
             try:
@@ -101,9 +103,25 @@ class Radar:
                     data = client.recv(1024)
                     msg = proto.Mensagem()
                     msg.ParseFromString(data)
-                    if msg.tipo_mensagem == "COMANDO" and msg.comando.acao == "SET_RESOLUCAO":
-                        self.resolucao = msg.comando.param
-                        print(f"[CONFIG] Resolucao alterada para: {self.resolucao}")
+                    
+                    if msg.tipo_mensagem == "COMANDO":
+                        acao = msg.comando.acao
+                        param = msg.comando.param
+                        
+                        if acao == "SET_RESOLUCAO":
+                            self.resolucao = param
+                            print(f"[CONFIG] Resolucao alterada para: {self.resolucao}")
+                        elif acao == "LIGAR":
+                            self.ligado = True
+                            print(f"[ACAO] Radar LIGADO - Iniciando captura de velocidade")
+                        elif acao == "DESLIGAR":
+                            self.ligado = False
+                            print(f"[ACAO] Radar DESLIGADO - Parando captura")
+                        elif acao == "TOGGLE":
+                            self.ligado = not self.ligado
+                            estado = "LIGADO" if self.ligado else "DESLIGADO"
+                            print(f"[ACAO] Radar {estado}")
+                            
                 except: pass
                 client.close()
             except socket.timeout:
@@ -117,6 +135,11 @@ class Radar:
             time.sleep(4)
             if not running:
                 break
+            
+            # Só envia dados se estiver ligado
+            if not self.ligado:
+                continue
+                
             velocidade = random.uniform(40.0, 110.0)
             
             msg = proto.Mensagem()
@@ -130,7 +153,7 @@ class Radar:
             sock.sendto(msg.SerializeToString(), ('localhost', GATEWAY_UDP_PORT))
 
     def start(self):
-        threading.Thread(target=self.ouvir_configuracao, daemon=True).start()
+        threading.Thread(target=self.ouvir_comandos, daemon=True).start()
         threading.Thread(target=self.enviar_velocidade, daemon=True).start()
         threading.Thread(target=self.ouvir_discovery, daemon=True).start()
         
